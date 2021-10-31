@@ -1,21 +1,32 @@
 import { Link, ListItem, Typography ,Card,List,Button} from '@material-ui/core';
 import { useRouter } from 'next/dist/client/router';
-import React from 'react';
+import React, { useContext } from 'react';
+import { Store } from '../../utils/Store';
 import Layout from '../../components/Layout';
-import data from '../../utils/data'
 import NextLink from "next/link"
 import useStyles from '../../utils/styles';
 import { Grid } from '@material-ui/core';
 import Image from "next/image"
-export default function ProductScreen() {
+import db from '../../utils/db'
+import Product from "../../models/Product"
+const axios = require('axios').default;
+export default function ProductScreen({product}) {
     const classes=useStyles()
     const router=useRouter()
     const {slug}=router.query
-    const product=data.products.find(a=>a.slug===slug);
+    const {state,dispatch}=useContext(Store);
+    const {cart}=state
     if(!product){
         return <div>
             Product Not Found
         </div>
+    }
+    const addToCartHandler= async()=>{
+      const {data}=await axios.get(`/api/products/${product._id}`);
+      if(data.countInStock<=0){
+        alert("Sorry product is out of stock")
+      }
+      dispatch({type:"CART_ADD_ITEM",payload:{...product,quantity:1}})
     }
   return (
     <div>
@@ -74,7 +85,7 @@ export default function ProductScreen() {
                   fullWidth
                   variant="contained"
                   color="primary"
-                
+                onClick={addToCartHandler}
                 >
                   Add to cart
                 </Button>
@@ -88,4 +99,18 @@ export default function ProductScreen() {
 
     </div>
   );
+}
+export async function getServerSideProps(context){
+  const {params}=context;
+  const {slug}=params
+  await db.connect()
+  const products=await Product.findOne({slug}).lean();
+  await db.disconnect();
+  return {
+    props:{
+
+    product:db.convertDocToObj(products)
+
+    }
+  }
 }
